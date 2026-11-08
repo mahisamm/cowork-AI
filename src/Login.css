@@ -13,7 +13,7 @@
 }
 .glass-login :focus-visible { outline: 2px solid #ffac7e; outline-offset: 4px; }
 .glass-header, .glass-footer { position: relative; z-index: 1; width: 100%; display: flex; justify-content: space-between; align-items: center; gap: 20px; }
-.glass-header .mark { color: #fafafa; background: linear-gradient(145deg, #505158, #1a1b20 65%); border: 1px solid #ffffff35; box-shadow: inset 0 1px 2px #ffffff35; }
+.glass-header .mark { color: #fafafa; background: radial-gradient(circle at 30% 22%, #ffb48638, transparent 65%), linear-gradient(145deg, #26293d, #131521 70%); border: 1px solid #ffd2ad4d; box-shadow: inset 0 1px 2px #ffffff45, 0 6px 18px #0007; }
 .glass-header .brand strong { font-size: 18px; letter-spacing: -.04em; }
 .glass-header .brand small { color: #a3a3ae; font-size: 8px; }
 .glass-org { display: inline-flex; align-items: center; gap: 9px; padding: 10px 15px; color: #c6c6cd; font-size: 11px; border: 1px solid #ffffff1a; border-radius: 30px; background: #141519b3; }

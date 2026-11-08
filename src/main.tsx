@@ -6,7 +6,7 @@ import { Dashboard, type Page } from './Dashboard'
 import { Attendance, Directory, LeavePage } from './Views'
 import { LeaveForm, PersonForm, ReviewForm } from './Forms'
 import { Login } from './Login'
-import { Avatar, Badge, Dialog, Mark, Notice } from './ui'
+import { Avatar, Badge, Dialog, Mark, Notice, OrgMark } from './ui'
 import '@fontsource-variable/plus-jakarta-sans'
 import '@fontsource-variable/space-grotesk'
 import '@fontsource-variable/jetbrains-mono'
@@ -225,7 +225,7 @@ function App() {
     {menu && <button className="rail-overlay" aria-label="Close navigation" onClick={() => setMenu(false)} />}
     <aside className={'rail ' + (menu ? 'rail-open' : '')} id="workspace-navigation">
       <div className="brand"><Mark /><div><strong>PeopleOps AI</strong><small>PEOPLE WORKSPACE</small></div></div>
-      <div className="org"><span className="org-icon">N</span><div><strong>{organization.name}</strong><small>Demo organization</small></div></div>
+      <div className="org"><OrgMark /><div><strong>{organization.name}</strong><small>Demo organization</small></div></div>
       <div className="rail-label">WORKSPACE</div>
       <nav aria-label="Workspace navigation">
         {pages.map(({ label, icon: Icon }) => <button key={label} onClick={() => go(label)} aria-current={label === page ? 'page' : undefined}>

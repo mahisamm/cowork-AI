@@ -1,10 +1,11 @@
 import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react'
 import { createRoot } from 'react-dom/client'
-import { CalendarDays, CalendarPlus, ChevronDown, Clock3, Command, LayoutGrid, LogOut, Menu, Plus, Radio, Search, UsersRound, X } from 'lucide-react'
-import { ApiError, api, leads, roleNames, type Leave, type Person, type Workspace } from './model'
+import { CalendarDays, CalendarPlus, ChevronDown, Clock3, Command, LayoutGrid, ListTodo, LogOut, Menu, Plus, Radio, Search, UsersRound, X } from 'lucide-react'
+import { ApiError, api, leads, roleNames, type Leave, type Person, type Task, type Workspace } from './model'
 import { Dashboard, type Page } from './Dashboard'
 import { Attendance, Directory, LeavePage } from './Views'
-import { LeaveForm, PersonForm, ReviewForm } from './Forms'
+import { LeaveForm, PersonForm, ReviewForm, TaskForm } from './Forms'
+import { TasksPage } from './Tasks'
 import { Login } from './Login'
 import { Avatar, Badge, Dialog, Mark, Notice, OrgMark } from './ui'
 import '@fontsource-variable/plus-jakarta-sans'
@@ -19,9 +20,11 @@ const pages = [
   { label: 'Directory', icon: UsersRound },
   { label: 'Attendance', icon: Clock3 },
   { label: 'Leave', icon: CalendarDays },
+  { label: 'My tasks', icon: ListTodo },
 ] as const
-const pageFromUrl = (): Page => pages.find(item => '#' + item.label.toLowerCase() === window.location.hash)?.label ?? 'Overview'
-type Modal = { kind: 'leave' } | { kind: 'person'; person?: Person } | { kind: 'review'; item: Leave; decision: 'Approved' | 'Rejected' } | { kind: 'command' }
+const pageHash = (page: Page) => '#' + page.toLowerCase().replaceAll(' ', '-')
+const pageFromUrl = (): Page => pages.find(item => pageHash(item.label) === window.location.hash)?.label ?? 'Overview'
+type Modal = { kind: 'leave' } | { kind: 'person'; person?: Person } | { kind: 'review'; item: Leave; decision: 'Approved' | 'Rejected' } | { kind: 'command' } | { kind: 'task'; task?: Task; remove?: boolean }
 type Toast = { message: string; error?: boolean }
 
 function CommandPalette({ data, close, go, openModal }: {
@@ -54,6 +57,9 @@ function CommandPalette({ data, close, go, openModal }: {
             ))}
             <button type="button" className="cmd-item" onClick={() => openModal({ kind: 'leave' })}>
               <CalendarPlus size={16} /><span>New leave request</span>
+            </button>
+            <button type="button" className="cmd-item" onClick={() => { go('My tasks'); openModal({ kind: 'task' }) }}>
+              <ListTodo size={16} /><span>Add personal task</span>
             </button>
             {leads(data.user.role) && (
               <button type="button" className="cmd-item" onClick={() => openModal({ kind: 'person' })}>
@@ -93,6 +99,7 @@ function App() {
   const [toast, setToast] = useState<Toast | null>(null)
   const [busy, setBusy] = useState(false)
   const version = useRef(0)
+  const loadedUserId = useRef<number | undefined>(undefined)
   const accountRef = useRef<HTMLDetailsElement>(null)
 
   const load = useCallback(async () => {
@@ -100,6 +107,11 @@ function App() {
     try {
       const data = await api<Workspace>('/workspace')
       if (version.current === current) {
+        if (loadedUserId.current !== undefined && loadedUserId.current !== data.user.id) {
+          setModal(null)
+          setToast(null)
+        }
+        loadedUserId.current = data.user.id
         setWorkspace(data)
         setProblem('')
       }
@@ -177,7 +189,7 @@ function App() {
     setPage(next)
     setMenu(false)
     accountRef.current?.removeAttribute('open')
-    window.location.hash = next.toLowerCase()
+    window.location.hash = pageHash(next)
     window.scrollTo(0, 0)
   }
   async function save(path: string, method: string, body: unknown, message: string) {
@@ -261,6 +273,8 @@ function App() {
         {page === 'Directory' && <Directory data={workspace} open={person => setModal({ kind: 'person', person })} />}
         {page === 'Attendance' && <Attendance data={workspace} busy={busy} clock={clock} />}
         {page === 'Leave' && <LeavePage data={workspace} busy={busy} request={request} decide={(item, decision) => setModal({ kind: 'review', item, decision })} />}
+        {page === 'My tasks' && <TasksPage key={user.id} data={workspace} save={save}
+          edit={task => setModal({ kind: 'task', task })} remove={task => setModal({ kind: 'task', task, remove: true })} />}
         <footer className="page-footer"><span>PeopleOps AI <span className="footer-dot">·</span> {organization.name}</span><span>PHASE 01 / PEOPLE OPERATIONS</span></footer>
       </main>
     </div>
@@ -268,6 +282,7 @@ function App() {
     {modal?.kind === 'leave' && <LeaveForm data={workspace} close={close} save={save} />}
     {modal?.kind === 'person' && <PersonForm data={workspace} close={close} save={save} person={modal.person} />}
     {modal?.kind === 'review' && <ReviewForm close={close} save={save} item={modal.item} decision={modal.decision} />}
+    {modal?.kind === 'task' && <TaskForm task={modal.task} remove={modal.remove} close={close} save={save} />}
     {modal?.kind === 'command' && <CommandPalette data={workspace} close={close} go={go} openModal={setModal} />}
   </div>
 }

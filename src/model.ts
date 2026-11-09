@@ -12,12 +12,22 @@ export type Leave = {
   status: 'Pending' | 'Approved' | 'Rejected'; reviewable: boolean; reviewer: string | null
 }
 export type Activity = { id: string; name: string; detail: string; at: string; kind: 'attendance' | 'leave' | 'review' }
+export type Task = {
+  id: number
+  title: string
+  notes: string
+  due_on: string | null
+  priority: 'low' | 'normal' | 'high'
+  completed: boolean
+}
 export type Workspace = {
   organization: { name: string; timezone: string }
   departments: string[]; user: Person; day: string; directory: Person[]; attendance: Shift[]; leaves: Leave[]; shift: Shift | null
   activity: Activity[]; series: { date: string; count: number }[]
+  tasks: Task[]
   metrics: { people: number; attended: number; checkedIn: number; pending: number; reviewable: number; out: number; annualRemaining: number; annualAllowance: number }
 }
+export const taskNeedsAttention = (task: Task, day: string) => !task.completed && task.due_on !== null && task.due_on <= day
 export const demoPassword = 'PeopleOps2026!'
 export const roleNames: Record<Role, string> = { admin: 'Admin', hr: 'HR', manager: 'Manager', employee: 'Employee' }
 export const leads = (role: Role) => role === 'admin' || role === 'hr'

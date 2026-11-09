@@ -42,6 +42,8 @@ Use separate browser profiles or a private window to demonstrate different roles
 
 ## Workflows
 
+**My tasks** is available to every role. Open it from the sidebar, dashboard, or Spotlight. Add a title, optional due date and notes, and a priority. The Due & overdue filter surfaces open tasks that need attention. Complete or reopen items and track progress. Task records and live updates are scoped to the signed-in account.
+
 1. Sign in as Employee and check in. A Manager or HR session receives a live update.
 2. Check out and confirm the shift becomes Completed.
 3. Submit annual leave. Approve it as Manager and watch the employee's status and balance update.

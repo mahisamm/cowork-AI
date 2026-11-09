@@ -5,11 +5,21 @@ import { annualAllowance, departments, leaveDays, passwordHash, roles, today } f
 import { annualUsed, canManage, canReview, leads, snapshot } from './workspace.mjs'
 
 const validDate = value => typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value)
-  && Number.isFinite(Date.parse(value)) && new Date(value).toISOString().slice(0, 10) === value
+  && !value.startsWith('0000-') && Number.isFinite(Date.parse(value)) && new Date(value).toISOString().slice(0, 10) === value
 const text = (value, max) => typeof value === 'string' && value.trim().length <= max ? value.trim() : ''
 const fail = (res, status, error) => res.status(status).json({ error })
 const problem = (status, message) => Object.assign(new Error(message), { status })
 const validId = value => Number.isInteger(value) && value > 0 && value <= 2147483647
+
+function taskFields(input) {
+  const title = text(input?.title, 120)
+  const { notes = '', dueOn = null, priority = 'normal' } = input ?? {}
+  if (!title || title.includes('\0') || typeof notes !== 'string' || notes.length > 1000 || notes.includes('\0')
+    || (dueOn !== null && !validDate(dueOn)) || !['low', 'normal', 'high'].includes(priority)) {
+    throw problem(400, 'Enter a task title, valid due date and priority, and up to 1,000 characters of notes.')
+  }
+  return [title, notes.trim(), dueOn, priority]
+}
 
 async function profile(db, input, employeeId) {
   const name = text(input?.name, 90)
@@ -35,9 +45,11 @@ export function createApp(db, assets) {
   const sessions = auth(db)
   const streams = new Set()
   // Events contain no employee data. Every client reloads its authorized snapshot.
-  const push = () => {
+  const push = employeeId => {
     for (const stream of streams) {
-      if (!stream.res.destroyed) stream.res.write('event: refresh\ndata: {}\n\n')
+      if (!stream.res.destroyed && (employeeId === undefined || employeeId === stream.employeeId)) {
+        stream.res.write('event: refresh\ndata: {}\n\n')
+      }
     }
   }
   app.disable('x-powered-by')
@@ -80,7 +92,7 @@ export function createApp(db, assets) {
     res.set({ 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache, no-transform', Connection: 'keep-alive' })
     res.flushHeaders()
     res.write('retry: 2000\nevent: ready\ndata: {}\n\n')
-    const stream = { req, res }
+    const stream = { res, employeeId: req.user.id }
     streams.add(stream)
     const timer = setInterval(async () => {
       try {
@@ -89,6 +101,38 @@ export function createApp(db, assets) {
       } catch { res.end() }
     }, 15000)
     res.on('close', () => { clearInterval(timer); streams.delete(stream) })
+  })
+  app.post('/api/tasks', async (req, res) => {
+    const task = await db.one(`
+      INSERT INTO personal_tasks (title,notes,due_on,priority,employee_id)
+      VALUES ($1,$2,$3,$4,$5) RETURNING id
+    `, [...taskFields(req.body), req.user.id])
+    push(req.user.id)
+    res.status(201).json(task)
+  })
+  app.patch('/api/tasks/:id', async (req, res) => {
+    const id = Number(req.params.id)
+    if (!validId(id)) return fail(res, 400, 'Choose a valid task.')
+    let result
+    if (Object.hasOwn(req.body ?? {}, 'completed')) {
+      if (typeof req.body.completed !== 'boolean') return fail(res, 400, 'Choose a valid task status.')
+      result = await db.query('UPDATE personal_tasks SET completed=$1 WHERE id=$2 AND employee_id=$3',
+        [req.body.completed, id, req.user.id])
+    } else {
+      result = await db.query('UPDATE personal_tasks SET title=$1,notes=$2,due_on=$3,priority=$4 WHERE id=$5 AND employee_id=$6',
+        [...taskFields(req.body), id, req.user.id])
+    }
+    if (!result.rowCount) return fail(res, 404, 'Task not found.')
+    push(req.user.id)
+    res.json({ ok: true })
+  })
+  app.delete('/api/tasks/:id', async (req, res) => {
+    const id = Number(req.params.id)
+    if (!validId(id)) return fail(res, 400, 'Choose a valid task.')
+    const result = await db.query('DELETE FROM personal_tasks WHERE id=$1 AND employee_id=$2', [id, req.user.id])
+    if (!result.rowCount) return fail(res, 404, 'Task not found.')
+    push(req.user.id)
+    res.json({ ok: true })
   })
   app.post('/api/attendance/:action', async (req, res) => {
     const id = req.user.id

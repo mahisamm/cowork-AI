@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react'
-import { ArrowRight, ArrowUpRight, CalendarDays, CalendarPlus, CheckCircle2, Clock3, ClipboardList, Layers, LogIn, LogOut, Sparkles, UsersRound } from 'lucide-react'
-import { dateLabel, daysLabel, firstName, leads, roleNames, timeLabel, type Workspace } from './model'
+import { ArrowRight, ArrowUpRight, CalendarDays, CalendarPlus, CheckCircle2, Clock3, ClipboardList, Layers, ListTodo, LogIn, LogOut, Sparkles, UsersRound } from 'lucide-react'
+import { dateLabel, daysLabel, firstName, leads, roleNames, taskNeedsAttention, timeLabel, type Workspace } from './model'
 import { Avatar, Badge, Empty, Orbit, Trend } from './ui'
 
-export type Page = 'Overview' | 'Directory' | 'Attendance' | 'Leave'
+export type Page = 'Overview' | 'Directory' | 'Attendance' | 'Leave' | 'My tasks'
 const dashboardCopy = {
   admin: ['Organization overview', 'Monitor attendance, people records, and leave across Northstar Studio.'],
   hr: ['People operations', 'Keep track of your people, today’s attendance, and leave requests.'],
@@ -92,6 +92,8 @@ export function Dashboard({ data, go, request, busy, clock }: {
   const [selectedIdx, setSelectedIdx] = useState(6)
   const [activeDept, setActiveDept] = useState<string>('All')
   const person = user.role === 'employee'
+  const openTasks = data.tasks.filter(task => !task.completed).length
+  const dueTasks = data.tasks.filter(task => taskNeedsAttention(task, day)).length
   const stats = person ? [
     { label: 'My attendance', value: !shift ? 'Not checked in' : shift.clock_out ? 'Completed' : 'Checked in', hint: !shift ? 'Ready for your next shift' : shift.clock_out ? timeLabel(shift.clock_in) + ' – ' + timeLabel(shift.clock_out) + ' IST' : 'Since ' + timeLabel(shift.clock_in) + ' IST', icon: Clock3, tone: 'mint', link: 'Attendance' },
     { label: 'Annual leave left', value: metrics.annualRemaining, hint: 'Of ' + daysLabel(metrics.annualAllowance) + ' this year', icon: CalendarDays, tone: 'lavender', link: 'Leave' },
@@ -155,6 +157,11 @@ export function Dashboard({ data, go, request, busy, clock }: {
         <span className="stat-label">{label}</span><strong className={typeof value === 'string' ? 'stat-word' : ''}>{value}</strong><span className="stat-hint">{hint}</span>
       </button>)}
     </div>
+    <section className="panel callout task-shortcut" aria-label="Personal task summary">
+      <span className="tile-icon lavender"><ListTodo size={22} aria-hidden /></span>
+      <div><h2>My tasks</h2><p>{openTasks} open · {dueTasks} due today or overdue</p></div>
+      <button type="button" className="button secondary" onClick={() => go('My tasks')}>Open my tasks <ArrowRight size={16} aria-hidden /></button>
+    </section>
     <div className="dashboard-grid">
       <section className="panel chart-panel">
         <div className="panel-heading">

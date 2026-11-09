@@ -1,8 +1,8 @@
 import { useState, type FormEvent } from 'react'
-import { canEdit, dateLabel, dateRange, roleNames, type Leave, type Person, type Role, type Workspace } from './model'
+import { canEdit, dateLabel, dateRange, roleNames, type Leave, type Person, type Role, type Task, type Workspace } from './model'
 import { Avatar, Badge, Dialog, Notice } from './ui'
 
-type Save = (path: string, method: string, body: unknown, success: string) => Promise<void>
+export type Save = (path: string, method: string, body: unknown, success: string) => Promise<void>
 type Props = { data: Workspace; close: () => void; save: Save }
 const value = (form: FormData, name: string) => String(form.get(name) ?? '')
 
@@ -25,6 +25,39 @@ function useSubmit(save: Save, close: () => void) {
 function FormActions({ close, busy, label, danger = false }: { close: () => void; busy: boolean; label: string; danger?: boolean }) {
   return <div className="form-actions"><button type="button" className="button secondary" onClick={close} disabled={busy}>Cancel</button>
     <button className={'button ' + (danger ? 'danger' : 'primary')} disabled={busy}>{busy ? 'Saving…' : label}</button></div>
+}
+
+export function TaskForm({ task, remove = false, close, save }: { task?: Task; remove?: boolean; close: () => void; save: Save }) {
+  const { submit, busy, error } = useSubmit(save, close)
+  const dismiss = () => { if (!busy) close() }
+  const path = task ? '/tasks/' + task.id : '/tasks'
+  if (remove && task) return <Dialog title="Delete task" description="This removes the task from your list." close={dismiss}>
+    <form className="dialog-form" onSubmit={event => { event.preventDefault(); void submit(path, 'DELETE', undefined, 'Task deleted.') }}>
+      <p className="review-reason">{task.title}</p>
+      {error && <Notice error>{error}</Notice>}
+      <FormActions close={dismiss} busy={busy} label="Delete task" danger />
+    </form>
+  </Dialog>
+  function handle(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    const form = new FormData(event.currentTarget)
+    const input = { title: value(form, 'title'), notes: value(form, 'notes'), dueOn: value(form, 'dueOn') || null, priority: value(form, 'priority') }
+    void submit(path, task ? 'PATCH' : 'POST', input, task ? 'Task updated.' : 'Task added.')
+  }
+  return <Dialog title={task ? 'Edit task' : 'Add task'} description="Plan something you want to get done." close={dismiss}>
+    <form className="dialog-form" onSubmit={handle}>
+      <label>Task title<input name="title" required maxLength={120} defaultValue={task?.title} /></label>
+      <div className="form-grid">
+        <label>Due date<input name="dueOn" type="date" min="0001-01-01" max="9999-12-31" defaultValue={task?.due_on ?? ''} /></label>
+        <label>Priority<select name="priority" defaultValue={task?.priority ?? 'normal'}>
+          <option value="low">Low</option><option value="normal">Normal</option><option value="high">High</option>
+        </select></label>
+      </div>
+      <label>Notes<textarea name="notes" rows={3} maxLength={1000} defaultValue={task?.notes} /></label>
+      {error && <Notice error>{error}</Notice>}
+      <FormActions close={dismiss} busy={busy} label={task ? 'Save task' : 'Add task'} />
+    </form>
+  </Dialog>
 }
 
 export function LeaveForm({ data, close, save }: Props) {

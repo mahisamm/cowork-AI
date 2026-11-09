@@ -19,6 +19,10 @@ export async function annualUsed(db, employeeId, year, includePending = false) {
 
 export async function snapshot(db, user) {
   const day = today()
+  const tasks = await db.all(`
+    SELECT id,title,notes,due_on,priority,completed FROM personal_tasks WHERE employee_id=$1
+    ORDER BY completed, due_on NULLS LAST, CASE priority WHEN 'high' THEN 0 WHEN 'normal' THEN 1 ELSE 2 END, id DESC
+  `, [user.id])
   const directory = (await db.all('SELECT id,name,email,title,department,role,manager_id,joined_on FROM employees ORDER BY name', []))
   const byId = new Map(directory.map(person => [person.id, person]))
   const people = directory.filter(person => scoped(user, person))
@@ -56,7 +60,7 @@ export async function snapshot(db, user) {
     ]),
   ].sort((a, b) => b.at.localeCompare(a.at)).slice(0, 6)
   return {
-    organization, departments, user: byId.get(user.id), day, directory, attendance: records, leaves, activity, series,
+    organization, departments, user: byId.get(user.id), day, directory, attendance: records, leaves, tasks, activity, series,
     shift: records.find(record => record.employee_id === user.id && !record.clock_out)
       ?? shiftsToday.find(record => record.employee_id === user.id) ?? null,
     metrics: {

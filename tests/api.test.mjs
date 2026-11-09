@@ -3,6 +3,47 @@ import { test } from 'node:test'
 import { connect, offsetDay } from '../server/db.mjs'
 import { client, testServer, testSchema } from './helpers.mjs'
 
+test('personal tasks validate input, persist, and restrict access to their owner in every role', async t => {
+  const base = await testServer(t)
+  const guest = client(base)
+  assert.equal((await guest.write('/tasks', { title: 'Guest task' })).status, 401)
+  const employee = client(base)
+  assert.equal((await employee.login('employee')).status, 200)
+  const { user, day } = await employee.read()
+  const task = { title: '  Personal follow-up  ', notes: 'Review the checklist', dueOn: day, priority: 'high' }
+  for (const invalid of [
+    { title: ' ' }, { notes: 'x'.repeat(1001) }, { priority: 'urgent' },
+    { dueOn: '2026-02-30' }, { dueOn: '0000-01-01' }, { notes: 'invalid\0text' },
+  ]) {
+    assert.equal((await employee.write('/tasks', { ...task, ...invalid })).status, 400)
+  }
+  const created = await employee.write('/tasks', { ...task, employee_id: user.id + 1 })
+  assert.equal(created.status, 201)
+  const { id } = await created.json()
+  const path = '/tasks/' + id
+  assert.deepEqual((await employee.read()).tasks, [{ id, title: 'Personal follow-up', notes: task.notes, due_on: day, priority: 'high', completed: false }])
+  for (const role of ['admin', 'hr', 'manager']) {
+    const other = client(base)
+    assert.equal((await other.login(role)).status, 200)
+    assert.deepEqual((await other.read()).tasks, [])
+    assert.equal((await other.write(path, { completed: true }, 'PATCH')).status, 404)
+    assert.equal((await other.write(path, task, 'PATCH')).status, 404)
+    assert.equal((await other.write(path, undefined, 'DELETE')).status, 404)
+    assert.equal((await other.write('/tasks', { title: role + ' task' })).status, 201)
+    assert.equal((await other.read()).tasks[0].title, role + ' task')
+  }
+  assert.equal((await employee.write(path, { completed: 'true' }, 'PATCH')).status, 400)
+  assert.equal((await employee.write(path, { completed: true }, 'PATCH')).status, 200)
+  assert.equal((await employee.write(path, { title: 'Updated follow-up' }, 'PATCH')).status, 200)
+  const secondSession = client(base)
+  assert.equal((await secondSession.login('employee')).status, 200)
+  assert.deepEqual((await secondSession.read()).tasks, [{ id, title: 'Updated follow-up', notes: '', due_on: null, priority: 'normal', completed: true }])
+  assert.equal((await secondSession.write(path, { completed: false }, 'PATCH')).status, 200)
+  assert.equal((await employee.read()).tasks[0].completed, false)
+  assert.equal((await employee.write(path, undefined, 'DELETE')).status, 200)
+  assert.deepEqual((await secondSession.read()).tasks, [])
+})
+
 test('sessions and role scopes protect employee and workforce records', async t => {
   const base = await testServer(t)
   const guest = client(base)

@@ -153,6 +153,20 @@ svg { flex: none; }
 .callout .tile-icon { width: 42px; height: 42px; }
 .callout p { color: var(--muted); font-size: 12px; margin-top: 3px; }
 .callout > :last-child:not(div) { margin-left: auto; }
+.task-shortcut { margin-top: 16px; }
+.task-progress progress { width: min(200px, 100%); accent-color: var(--green); }
+.task-list { padding: 0; margin: 0; list-style: none; }
+.task-row { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: start; gap: 12px; padding: 14px 16px; border-top: 1px solid var(--line); }
+.task-details { min-width: 0; overflow-wrap: anywhere; }
+.task-details p { color: var(--muted); font-size: 13px; line-height: 1.5; margin: 4px 0 0; white-space: pre-wrap; }
+.task-actions, .task-badges { display: flex; flex-wrap: wrap; gap: 6px; }
+.task-badges { margin-top: 7px; }
+.task-error { padding: 0 16px 10px; }
+@media (max-width: 480px) {
+  .task-row { grid-template-columns: auto minmax(0, 1fr); }
+  .task-actions { grid-column: 2; }
+  .task-progress progress { flex: 1 0 100%; }
+}
 .shift-completed { display: inline-flex; align-items: center; gap: 6px; color: var(--green); font-size: 13px; font-weight: 700; }
 .list-panel { overflow: hidden; }
 .list-tools { padding: 14px 16px; display: flex; justify-content: space-between; align-items: center; gap: 10px; }
